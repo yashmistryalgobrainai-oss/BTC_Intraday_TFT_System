@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+venv/
+env/
+.env
+
+# IDE
+.vscode/
+.idea/
+
+# Data
+data/raw/
+data/processed/
+
+# Models & Logs
+models/*.ckpt
+models/*.json
+models/*.bin
+lightning_logs/
+logs/
+
+# Results & Artifacts
+*.png
+*.jpg
+*.jpeg
+*.csv
+!data/raw/.keep
+!data/processed/.keep
+
+# OS
+.DS_Store
+Thumbs.db
