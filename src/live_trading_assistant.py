@@ -136,7 +136,7 @@ class LiveTradingAssistant:
         conf = analysis['confidence']
         
         # Threshold Check
-        if conf < 0.65 or signal == 0:
+        if conf < 0.50 or signal == 0:
             print(f"\r[{datetime.datetime.now().strftime('%H:%M:%S')}] HOLD | Conf: {conf:.0%} | Price: ${price:.2f}", end="")
             return
 

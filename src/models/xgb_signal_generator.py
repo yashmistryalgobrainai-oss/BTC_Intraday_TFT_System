@@ -65,7 +65,6 @@ class TradingSignalXGB:
             X_train, y_train,
             sample_weight=weights,
             eval_set=[(X_val, y_val)],
-            early_stopping_rounds=20, # Stop if val loss doesn't improve for 20 rounds
             verbose=20
         )
         

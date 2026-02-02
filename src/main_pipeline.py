@@ -84,7 +84,7 @@ class TradingSystemPipeline:
         
         # Run Simulation
         backtester = RealisticBacktester(initial_capital=10000)
-        metrics = backtester.run(test_df, probs, threshold=0.65) # Strict threshold
+        metrics = backtester.run(test_df, probs, threshold=0.50) # Strict threshold
         
         logger.info("\n" + "="*30)
         logger.info("   FINAL BACKTEST METRICS")

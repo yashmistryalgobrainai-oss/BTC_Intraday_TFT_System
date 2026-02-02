@@ -26,6 +26,7 @@ class TemporalFeatureEngineer:
         df['rsi'] = ti.get_rsi(df['close'])
         df['macd'], df['macd_signal'] = ti.get_macd(df['close'])
         df['atr'] = ti.get_atr(df)
+        df = ti.add_time_features(df)
         
         # 2. Bollinger Bands (20, 2)
         # BB works on price, so it's not stationary, but relative position (B% or bandwidth) is.
