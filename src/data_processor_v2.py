@@ -87,7 +87,7 @@ class DataProcessorV2:
         # Class 2: SELL (< -0.5%)
         # Class 0: HOLD (Between -0.5% and 0.5%)
         
-        THRESHOLD = 0.005
+        THRESHOLD = 0.01
         
         conditions = [
             (df['forward_return_1h'] >= THRESHOLD),

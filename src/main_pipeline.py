@@ -76,15 +76,16 @@ class TradingSystemPipeline:
         """Runs realistic backtest."""
         logger.info("STEP 5: Realistic Backtesting...")
         
+        # Get feature names from model
         feature_cols = model.feature_names
         X_test = test_df[feature_cols]
         
-        # Get Probabilities
-        probs = model.predict_signal(X_test)
+        # CRITICAL FIX: Get raw probabilities array, not the dict wrapper
+        probs = model.model.predict_proba(X_test)
         
-        # Run Simulation
+        # Run simulation with higher threshold
         backtester = RealisticBacktester(initial_capital=10000)
-        metrics = backtester.run(test_df, probs, threshold=0.50) # Strict threshold
+        metrics = backtester.run(test_df, probs, threshold=0.65)
         
         logger.info("\n" + "="*30)
         logger.info("   FINAL BACKTEST METRICS")

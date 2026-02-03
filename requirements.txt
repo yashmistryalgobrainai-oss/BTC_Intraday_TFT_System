@@ -23,3 +23,5 @@ seaborn>=0.12.0             # For correlation heatmaps (data analysis)
 # --- Utilities ---
 tqdm>=4.65.0                # Progress bars for training loops
 joblib>=1.3.0               # For saving/loading Scalers
+
+xgboost>=2.0.0
