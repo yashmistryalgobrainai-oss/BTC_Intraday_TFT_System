@@ -82,13 +82,13 @@ class DataProcessorV2:
         df['forward_return_1h'] = (df['future_close_1h'] - df['close']) / df['close']
         
         # --- LABELING LOGIC ---
-        # Threshold: 1.5% (0.015)
-        # For 1H candles, we need larger moves to be profitable
-        # Class 1: BUY  (> 1.5%)
-        # Class 2: SELL (< -1.5%)
-        # Class 0: HOLD (Between -1.5% and 1.5%)
+        # Threshold: 2.0% (0.020)
+        # 2.0% - minimum profitable move for 1H candles after 0.26% costs
+        # Class 1: BUY  (> 2.0%)
+        # Class 2: SELL (< -2.0%)
+        # Class 0: HOLD (Between -2.0% and 2.0%)
         
-        THRESHOLD = 0.015
+        THRESHOLD = 0.020
         
         conditions = [
             (df['forward_return_1h'] >= THRESHOLD),

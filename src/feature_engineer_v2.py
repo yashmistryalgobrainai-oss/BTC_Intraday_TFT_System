@@ -64,7 +64,7 @@ class TemporalFeatureEngineer:
         
         for col in features_to_lag:
             if col not in df.columns: continue
-            for lag in [1, 2, 3, 4, 5]:
+            for lag in [1, 2, 3]:  # Only 3 hours lookback for 1H candles
                 df[f'{col}_lag{lag}'] = df[col].shift(lag)
                 
         return df

@@ -2,6 +2,7 @@ import os
 import sys
 import pandas as pd
 import logging
+import pickle
 
 # Ensure src is in python path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -52,6 +53,12 @@ class TradingSystemPipeline:
         val_eng = engineer.transform(val)
         test_eng = engineer.transform(test)
         
+        # Save the fitted feature engineer for live trading
+        scaler_path = os.path.join(Config.MODEL_SAVE_PATH, 'feature_scaler.pkl')
+        with open(scaler_path, 'wb') as f:
+            pickle.dump(engineer, f)
+        logger.info(f"Feature scaler saved to {scaler_path}")
+        
         return train_eng, val_eng, test_eng, engineer.feature_cols
 
     def step_4_training(self, train, val):
@@ -85,7 +92,7 @@ class TradingSystemPipeline:
         
         # Run simulation with higher threshold
         backtester = RealisticBacktester(initial_capital=10000)
-        metrics = backtester.run(test_df, probs, threshold=0.40)
+        metrics = backtester.run(test_df, probs, threshold=0.75)
         
         logger.info("\n" + "="*30)
         logger.info("   FINAL BACKTEST METRICS")
@@ -178,6 +185,21 @@ class TradingSystemPipeline:
         feature_cols = model.feature_names
         probs = model.model.predict_proba(test[feature_cols])
         self.step_5b_diagnostic(model, test, probs)
+        
+        # Compare against simple baseline
+        logger.info("\n" + "="*50)
+        logger.info("BASELINE COMPARISON (20/50 MA Crossover)")
+        logger.info("="*50)
+        baseline_trades = 0
+        baseline_wins = 0
+        ma20 = test['close'].rolling(20).mean()
+        ma50 = test['close'].rolling(50).mean()
+        baseline_signal = (ma20 > ma50).astype(int)
+        signal_changes = baseline_signal.diff().fillna(0)
+        baseline_trades = (signal_changes != 0).sum()
+        logger.info(f"Baseline would generate ~{baseline_trades} signals")
+        logger.info(f"ML Model generated {metrics['Total Trades']} signals")
+        logger.info("="*50)
         
         # 6. Initialize Assistant
         logger.info("STEP 6: Initializing Live Assistant...")

@@ -62,7 +62,9 @@ class RealisticBacktester:
             timestamp = df_test.index[i]
             row = df_test.iloc[i]
             price = row['close']
-            atr = row.get('atr_raw', row['atr']) # Use RAW dollar ATR if available
+            atr = row.get('atr_raw', row.get('atr', 0))  # Handle both naming conventions
+            if atr == 0:
+                continue  # Skip candles with zero ATR
             
             # 1. Manage Existing Position
             if self.position != 0:

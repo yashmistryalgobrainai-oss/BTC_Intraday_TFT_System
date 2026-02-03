@@ -4,23 +4,28 @@ import pandas as pd
 import numpy as np
 import datetime
 import os
+import pickle
 from src.feature_engineer_v2 import TemporalFeatureEngineer
 from src.models.xgb_signal_generator import TradingSignalXGB
 from src.config import Config
 
 class LiveTradingAssistant:
-    def __init__(self, model_filename='btc_xgb_v2.json'):
-        self.feature_engineer = TemporalFeatureEngineer()
+    def __init__(self, model_filename='trading_assistant_v2.json'):
+        # Load fitted scaler from training
+        scaler_path = os.path.join(Config.MODEL_SAVE_PATH, 'feature_scaler.pkl')
+        if os.path.exists(scaler_path):
+            with open(scaler_path, 'rb') as f:
+                self.feature_engineer = pickle.load(f)
+            print("Loaded fitted scaler from training.")
+        else:
+            print("WARNING: Scaler not found. Creating new one (NOT RECOMMENDED FOR PRODUCTION)")
+            self.feature_engineer = TemporalFeatureEngineer()
+        
         self.model = TradingSignalXGB()
         
         # Load Model
         try:
             self.model.load_model(model_filename)
-            # IMPORTANT: In a real system, we'd also load the FITTED Scaler parameters here.
-            # But since XGBoost is tree-based and scale-invariant, it technically doesn't require scaling!
-            # However, our feature engineer expects to be fitted.
-            # WORKAROUND FOR DEMO: We will fit the engineer on the live buffer itself (approximate).
-            # In production, save/load the scaler object using pickle.
         except Exception as e:
             print(f"Warning: Model file not found ({e}). System will run in DEMO mode.")
 
@@ -29,7 +34,7 @@ class LiveTradingAssistant:
         url = "https://api.binance.com/api/v3/klines"
         params = {
             "symbol": "BTCUSDT",
-            "interval": "15m",
+            "interval": "1h",
             "limit": limit
         }
         try:
@@ -59,11 +64,9 @@ class LiveTradingAssistant:
         if df is None: return
 
         # 2. Process Features
-        # For live trading, we need to process the whole buffer to get accurate recent signals
-        # We temporarily FIT on this buffer (Not ideal, but functional for XGBoost)
+        # Use transform only - scaler was fitted during training
         try:
-            # We use transform if we had a fitted scaler, but here we fit on live window
-            df_processed = self.feature_engineer.fit_transform(df)
+            df_processed = self.feature_engineer.transform(df)
             
             # Get latest COMPLETED candle (binance sends forming candle as last row)
             # If current time is 10:07, the 10:00 candle is forming. 
