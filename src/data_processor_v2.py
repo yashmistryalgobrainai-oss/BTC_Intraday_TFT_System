@@ -8,7 +8,7 @@ class DataProcessorV2:
     def __init__(self):
         self.raw_path = Config.DATA_RAW
         self.save_path = Config.DATA_PROCESSED
-        self.timeframe = '15min' # Hardcoded as per V2 requirement
+        self.timeframe = Config.TIMEFRAME
         
     def load_and_resample(self):
         print(f"Loading raw data from {self.raw_path}...")
@@ -74,20 +74,21 @@ class DataProcessorV2:
         # --- CRITICAL CHANGE: 1-HOUR FORWARD TARGET ---
         print("Creating 1-Hour Forward Targets...")
         
-        # We want the return from close(t) to close(t+4)
-        # Shift(-4) gets the price 4 candles (1 hour) in the future
-        df['future_close_1h'] = df['close'].shift(-4)
+        # We want the return for the NEXT 1H candle
+        # Shift(-1) gets the price 1 candle (1 hour) in the future
+        df['future_close_1h'] = df['close'].shift(-1)
         
         # Calculate Percentage Return
         df['forward_return_1h'] = (df['future_close_1h'] - df['close']) / df['close']
         
         # --- LABELING LOGIC ---
-        # Threshold: 0.5% (0.005)
-        # Class 1: BUY  (> 0.5%)
-        # Class 2: SELL (< -0.5%)
-        # Class 0: HOLD (Between -0.5% and 0.5%)
+        # Threshold: 1.5% (0.015)
+        # For 1H candles, we need larger moves to be profitable
+        # Class 1: BUY  (> 1.5%)
+        # Class 2: SELL (< -1.5%)
+        # Class 0: HOLD (Between -1.5% and 1.5%)
         
-        THRESHOLD = 0.01
+        THRESHOLD = 0.015
         
         conditions = [
             (df['forward_return_1h'] >= THRESHOLD),

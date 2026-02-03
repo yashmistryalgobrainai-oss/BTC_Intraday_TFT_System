@@ -72,7 +72,7 @@ class LiveTradingAssistant:
             row = df_processed.iloc[latest_idx:latest_idx+1]
             current_price = df['close'].iloc[-1] # Live ticker price
             signal_price = df['close'].iloc[latest_idx] # Price signal is based on
-            atr = df_processed['atr'].iloc[latest_idx]
+            atr = df_processed.get('atr_raw', df_processed['atr']).iloc[latest_idx]
             
             # 3. Predict
             # Returns: {'signal': 1, 'confidence': 0.75, 'probs': {...}}
@@ -136,7 +136,7 @@ class LiveTradingAssistant:
         conf = analysis['confidence']
         
         # Threshold Check
-        if conf < 0.50 or signal == 0:
+        if conf < 0.40 or signal == 0:
             print(f"\r[{datetime.datetime.now().strftime('%H:%M:%S')}] HOLD | Conf: {conf:.0%} | Price: ${price:.2f}", end="")
             return
 

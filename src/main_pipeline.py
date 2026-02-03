@@ -85,7 +85,7 @@ class TradingSystemPipeline:
         
         # Run simulation with higher threshold
         backtester = RealisticBacktester(initial_capital=10000)
-        metrics = backtester.run(test_df, probs, threshold=0.65)
+        metrics = backtester.run(test_df, probs, threshold=0.40)
         
         logger.info("\n" + "="*30)
         logger.info("   FINAL BACKTEST METRICS")
@@ -94,6 +94,59 @@ class TradingSystemPipeline:
             logger.info(f"{k:<20}: {v}")
             
         return metrics
+
+    def step_5b_diagnostic(self, model, test_df, probs):
+        """Diagnostic check to see if model predictions are accurate."""
+        logger.info("STEP 5B: Diagnostic Analysis...")
+        
+        import pandas as pd
+        
+        # Analyze actual outcomes of signals
+        test_signals = []
+        for i in range(len(test_df)):
+            row = test_df.iloc[i]
+            # Handle both naming conventions just in case
+            actual_return = row.get('forward_return_1h', row.get('forward_return', 0))
+            
+            if probs[i][1] > 0.40:  # BUY signal
+                test_signals.append({
+                    'predicted': 'BUY',
+                    'actual_return': actual_return,
+                    'correct': actual_return > 0.01
+                })
+            elif probs[i][2] > 0.40:  # SELL signal
+                test_signals.append({
+                    'predicted': 'SELL',
+                    'actual_return': actual_return,
+                    'correct': actual_return < -0.01
+                })
+        
+        if test_signals:
+            df_signals = pd.DataFrame(test_signals)
+            buy_signals = df_signals[df_signals['predicted'] == 'BUY']
+            sell_signals = df_signals[df_signals['predicted'] == 'SELL']
+            
+            logger.info("\n" + "="*50)
+            logger.info("SIGNAL ACCURACY DIAGNOSTIC")
+            logger.info("="*50)
+            logger.info(f"Total Signals Generated: {len(df_signals)}")
+            logger.info(f"Overall Accuracy: {df_signals['correct'].mean()*100:.1f}%")
+            
+            if len(buy_signals) > 0:
+                logger.info(f"\nBUY Signals: {len(buy_signals)}")
+                logger.info(f"  Accuracy: {buy_signals['correct'].mean()*100:.1f}%")
+                logger.info(f"  Avg Return: {buy_signals['actual_return'].mean()*100:.3f}%")
+            
+            if len(sell_signals) > 0:
+                logger.info(f"\nSELL Signals: {len(sell_signals)}")
+                logger.info(f"  Accuracy: {sell_signals['correct'].mean()*100:.1f}%")
+                logger.info(f"  Avg Return: {sell_signals['actual_return'].mean()*100:.3f}%")
+            
+            logger.info("="*50)
+        
+        return test_signals
+    
+
 
     def run_full_pipeline(self, retrain=True):
         print("\n=== STARTING TRADING SYSTEM PIPELINE ===\n")
@@ -118,6 +171,13 @@ class TradingSystemPipeline:
             
         # 5. Backtest
         metrics = self.step_5_backtesting(model, test)
+        
+        # 5b. Diagnostic
+        # We need probabilities again. 
+        # Ideally step_5 should return them or we re-predict.
+        feature_cols = model.feature_names
+        probs = model.model.predict_proba(test[feature_cols])
+        self.step_5b_diagnostic(model, test, probs)
         
         # 6. Initialize Assistant
         logger.info("STEP 6: Initializing Live Assistant...")

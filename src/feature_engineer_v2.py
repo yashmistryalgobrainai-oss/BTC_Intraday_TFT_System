@@ -26,6 +26,7 @@ class TemporalFeatureEngineer:
         df['rsi'] = ti.get_rsi(df['close'])
         df['macd'], df['macd_signal'] = ti.get_macd(df['close'])
         df['atr'] = ti.get_atr(df)
+        df['atr_raw'] = df['atr'] # Preserve for dollar-based risk management
         df = ti.add_time_features(df)
         
         # 2. Bollinger Bands (20, 2)
@@ -91,7 +92,7 @@ class TemporalFeatureEngineer:
         
         # 3. Identify Numeric Columns to Normalize
         # We exclude targets & raw IDs
-        exclude_cols = ['target_class', 'forward_return_1h', 'datetime', 'open', 'high', 'low', 'close', 'volume']
+        exclude_cols = ['target_class', 'forward_return_1h', 'datetime', 'open', 'high', 'low', 'close', 'volume', 'atr_raw']
         # Note: We keep raw OHLV un-scaled usually, OR we scale them. 
         # If model expects scaled, we scale. Let's scale everything valid except targets.
         

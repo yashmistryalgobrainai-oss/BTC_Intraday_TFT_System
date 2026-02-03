@@ -62,7 +62,7 @@ class RealisticBacktester:
             timestamp = df_test.index[i]
             row = df_test.iloc[i]
             price = row['close']
-            atr = row['atr']
+            atr = row.get('atr_raw', row['atr']) # Use RAW dollar ATR if available
             
             # 1. Manage Existing Position
             if self.position != 0:
@@ -112,6 +112,16 @@ class RealisticBacktester:
         fee_amt = self.capital * self.FEE_RATE
         self.capital -= fee_amt
         self.entry_fee = fee_amt
+
+        # Debug output for first 5 trades
+        if len(self.trades) < 5:
+            print(f"\n[DEBUG] Opening Trade #{len(self.trades)+1}")
+            print(f"  Direction: {'LONG' if direction==1 else 'SHORT'}")
+            print(f"  Entry: ${self.entry_price:,.2f}")
+            print(f"  SL: ${self.sl:,.2f} (Risk: {abs(self.sl-self.entry_price)/self.entry_price*100:.2f}%)")
+            print(f"  TP: ${self.tp:,.2f} (Reward: {abs(self.tp-self.entry_price)/self.entry_price*100:.2f}%)")
+            print(f"  ATR: ${atr:,.2f}")
+            print(f"  R:R Ratio: 1:{abs(self.tp-self.entry_price)/abs(self.sl-self.entry_price):.2f}")
 
     def _check_exit(self, current_price, timestamp, candle_row):
         """Checks if Price hit SL or TP during the candle."""

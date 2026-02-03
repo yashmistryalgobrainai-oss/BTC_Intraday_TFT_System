@@ -9,7 +9,7 @@ class Config:
     MODEL_SAVE_PATH = os.path.join(PROJECT_ROOT, 'models')
     
     # --- Data Settings ---
-    TIMEFRAME = '15min'  # Primary trading timeframe (can be '30min', '1H')
+    TIMEFRAME = '1H'  # Primary trading timeframe (can be '30min', '1H')
     INPUT_WINDOW = 60    # Lookback: Past 60 candles (e.g., 15h of context)
     PREDICT_WINDOW = 4   # Forecast: Next 4 candles (e.g., next 1 hour)
     
