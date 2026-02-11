@@ -40,7 +40,7 @@ def update_market_data():
     global latest_data
     while True:
         try:
-            df = bot.fetch_live_candles(limit=150)
+            df = bot.fetch_live_candles(limit=300)
             if df is not None:
                 # Process features
                 try:
@@ -48,14 +48,27 @@ def update_market_data():
                     latest_idx = -2
                     row = df_processed.iloc[latest_idx:latest_idx+1]
                     price = df['close'].iloc[-1]
-                    atr = df_processed['atr'].iloc[latest_idx]
+                    atr = df_processed.get('atr_raw', df_processed['atr']).iloc[latest_idx]
+                    ema_200 = df_processed.get('ema_200', pd.Series([0]*len(df_processed))).iloc[latest_idx]
                     
                     # Predict
                     analysis = bot.model.predict_signal(row)
                     
+                    # APPLY FILTERS (Match LiveTradingAssistant logic)
+                    sig = analysis['signal']
+                    price_val = float(price)
+                    
+                    # 1. Trend Filter
+                    if ema_200 > 0:
+                        if sig == 1 and price_val < ema_200 * 0.99: sig = 0
+                        elif sig == 2 and price_val > ema_200 * 1.01: sig = 0
+                        
+                    # 2. Long Only Mode (Hardcoded for now based on optimizations)
+                    if sig == 2: sig = 0
+                    
                     latest_data = {
                         'price': price,
-                        'signal': analysis['signal'],
+                        'signal': sig,
                         'confidence': analysis['confidence'],
                         'atr': atr,
                         'timestamp': datetime.now(),

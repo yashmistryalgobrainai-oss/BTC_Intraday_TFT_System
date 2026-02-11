@@ -60,7 +60,7 @@ class LiveTradingAssistant:
 
     def analyze_market(self, user_capital):
         # 1. Get Data
-        df = self.fetch_live_candles(limit=150) # Need enough history for lags
+        df = self.fetch_live_candles(limit=300) # Need enough history for lags and EMA 200
         if df is None: return
 
         # 2. Process Features
@@ -76,12 +76,13 @@ class LiveTradingAssistant:
             current_price = df['close'].iloc[-1] # Live ticker price
             signal_price = df['close'].iloc[latest_idx] # Price signal is based on
             atr = df_processed.get('atr_raw', df_processed['atr']).iloc[latest_idx]
+            ema_200 = df_processed.get('ema_200', pd.Series([0]*len(df_processed))).iloc[latest_idx]
             
             # 3. Predict
             # Returns: {'signal': 1, 'confidence': 0.75, 'probs': {...}}
             analysis = self.model.predict_signal(row) 
             
-            self._display_recommendation(analysis, current_price, atr, user_capital)
+            self._display_recommendation(analysis, current_price, atr, user_capital, ema_200)
             
         except Exception as e:
             print(f"Analysis Error: {e}")
@@ -94,13 +95,15 @@ class LiveTradingAssistant:
         risk_amt = capital * RISK_PER_TRADE
         
         if direction == 1: # Buy
-            sl = price - (2.0 * atr)
+            sl = price - (1.5 * atr)
             tp = price + (3.0 * atr)
             dist_per_unit = price - sl
         else: # Sell
-            sl = price + (2.0 * atr)
-            tp = price - (3.0 * atr)
-            dist_per_unit = sl - price
+             # LONG ONLY MODE ACTIVATED (Based on Performance Analysis)
+             return None 
+             # sl = price + (1.5 * atr)
+             # tp = price - (3.0 * atr)
+             # dist_per_unit = sl - price
             
         if dist_per_unit <= 0: return None
         
@@ -134,9 +137,19 @@ class LiveTradingAssistant:
             'profit': potential_profit
         }
 
-    def _display_recommendation(self, analysis, price, atr, capital):
+    def _display_recommendation(self, analysis, price, atr, capital, ema_200=0):
         signal = analysis['signal'] # 0=Hold, 1=Buy, 2=Sell
         conf = analysis['confidence']
+        
+        # --- TREND FILTER ---
+        if ema_200 > 0:
+            if signal == 1 and price < ema_200 * 0.99:
+                # Reject Counter-Trend Longs (Price < EMA 200)
+                signal = 0 
+                # (Optional: print reason)
+            elif signal == 2 and price > ema_200 * 1.01:
+                # Reject Counter-Trend Shorts (Price > EMA 200)
+                signal = 0
         
         # Threshold Check
         if conf < 0.40 or signal == 0:
@@ -152,6 +165,11 @@ class LiveTradingAssistant:
             direction = -1
             
         params = self._calculate_trade_params(direction, price, atr, capital)
+        
+        if params is None:
+            # Trade parameters could not be calculated (e.g. Risk > Reward or Long Only mode)
+            print(f"\r[{datetime.datetime.now().strftime('%H:%M:%S')}] HOLD (Risk Rejected) | Conf: {conf:.0%} | Price: ${price:.2f}", end="")
+            return
         
         print("\n" + "="*50)
         icon = "🚀" if direction == 1 else "🔻"

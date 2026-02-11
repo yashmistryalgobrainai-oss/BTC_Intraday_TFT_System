@@ -18,53 +18,72 @@ class TemporalFeatureEngineer:
         self.is_fitted = False
         
     def _add_technical_indicators(self, df):
-        """Generates indicators (RSI, MACD, ATR, BB)."""
+        """Generates curated list of indicators (Trend, Momentum, Volatility, Volume)."""
         df = df.copy()
         
-        # 1. Existing Indicators (Reuse Logic)
+        # --- 1. TREND (EMA 20/50) ---
+        df['ema_20'] = df['close'].ewm(span=20, adjust=False).mean()
+        df['ema_50'] = df['close'].ewm(span=50, adjust=False).mean()
+        df['ema_200'] = df['close'].ewm(span=200, adjust=False).mean()  # Long-term trend
+        df['trend_signal'] = df['ema_20'] - df['ema_50'] # Positive = Uptrend
+        
+        # --- 2. MOMENTUM (RSI, MACD) ---
         ti = TechnicalIndicators()
         df['rsi'] = ti.get_rsi(df['close'])
         df['macd'], df['macd_signal'] = ti.get_macd(df['close'])
+        
+        # --- 3. VOLATILITY (ATR, BB) ---
         df['atr'] = ti.get_atr(df)
         df['atr_raw'] = df['atr'] # Preserve for dollar-based risk management
-        df = ti.add_time_features(df)
         
-        # 2. Bollinger Bands (20, 2)
-        # BB works on price, so it's not stationary, but relative position (B% or bandwidth) is.
+        # Bollinger Bands (20, 2)
         sma_20 = df['close'].rolling(window=20).mean()
         std_20 = df['close'].rolling(window=20).std()
         df['bb_upper'] = sma_20 + (std_20 * 2)
         df['bb_lower'] = sma_20 - (std_20 * 2)
-        # Feature: Price position relative to BB (0 to 1) - cleaner than raw bands
+        df['bb_width'] = (df['bb_upper'] - df['bb_lower']) / df['close'] # Normalized width
         df['bb_position'] = (df['close'] - df['bb_lower']) / (df['bb_upper'] - df['bb_lower'])
+        
+        # --- 4. VOLUME (OBV, Rel Vol) ---
+        # On-Balance Volume
+        df['obv'] = (np.sign(df['close'].diff()) * df['volume']).fillna(0).cumsum()
+        
+        # Relative Volume (Vol / 20-period Avg Vol)
+        df['vol_ma_20'] = df['volume'].rolling(window=20).mean()
+        df['rel_volume'] = df['volume'] / df['vol_ma_20']
+        # Replace Inf/NaN in rel_volume logic (start of series)
+        df['rel_volume'] = df['rel_volume'].fillna(1.0).replace([np.inf, -np.inf], 1.0)
         
         return df
 
     def _add_derived_features(self, df):
-        """Generates Lags, Rolling Volatility, and Time features."""
+        """Generates Support/Resistance, Lags, and Time features."""
         
-        # Returns (Base for volatility)
+        # Returns
         df['returns'] = df['close'].pct_change()
         df['log_returns'] = np.log(df['close'] / df['close'].shift(1))
         
-        # 1. Time Features (Cyclical)
+        # --- 5. STRUCTURE (Support/Resistance) ---
+        # 24H High/Low lookback
+        df['resistance_24h'] = df['high'].rolling(window=24).max()
+        df['support_24h'] = df['low'].rolling(window=24).min()
+        
+        # Distance to S&R (Normalized)
+        df['dist_to_res'] = (df['close'] - df['resistance_24h']) / df['close']
+        df['dist_to_sup'] = (df['close'] - df['support_24h']) / df['close']
+        
+        # 1. Time Features
         df['hour_sin'] = np.sin(2 * np.pi * df.index.hour / 24)
         df['hour_cos'] = np.cos(2 * np.pi * df.index.hour / 24)
         df['day_sin'] = np.sin(2 * np.pi * df.index.dayofweek / 7)
         df['day_cos'] = np.cos(2 * np.pi * df.index.dayofweek / 7)
         
-        # 2. Rolling Volatility
-        # Volatility over 1h (4 candles of 15m) and 4h (16 candles)
-        df['volatility_1h'] = df['returns'].rolling(window=4).std()
-        df['volatility_4h'] = df['returns'].rolling(window=16).std()
-        
-        # 3. Lag Features
-        # "What happened 15m ago, 30m ago...?"
-        features_to_lag = ['close', 'volume', 'rsi', 'returns', 'atr', 'bb_position']
+        # 2. Lag Features (Reduced set)
+        features_to_lag = ['close', 'volume', 'rsi', 'macd', 'atr', 'bb_position', 'obv']
         
         for col in features_to_lag:
             if col not in df.columns: continue
-            for lag in [1, 2, 3]:  # Only 3 hours lookback for 1H candles
+            for lag in [1, 2, 3]:  # Only 3 hours lookback
                 df[f'{col}_lag{lag}'] = df[col].shift(lag)
                 
         return df
@@ -92,7 +111,7 @@ class TemporalFeatureEngineer:
         
         # 3. Identify Numeric Columns to Normalize
         # We exclude targets & raw IDs
-        exclude_cols = ['target_class', 'forward_return_1h', 'datetime', 'open', 'high', 'low', 'close', 'volume', 'atr_raw']
+        exclude_cols = ['target_class', 'forward_return_1h', 'datetime', 'open', 'high', 'low', 'close', 'volume', 'atr_raw', 'ema_200']
         # Note: We keep raw OHLV un-scaled usually, OR we scale them. 
         # If model expects scaled, we scale. Let's scale everything valid except targets.
         

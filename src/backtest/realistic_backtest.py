@@ -72,10 +72,19 @@ class RealisticBacktester:
             
             # 2. Check for New Entry (Only if no position)
             if self.position == 0:
+                ema_200 = row.get('ema_200', 0)
+                
                 if buy_signals[i]:
-                    self._open_position(1, price, atr, timestamp)
+                    # TREND FILTER: Only Buy if Price > EMA 200
+                    if pd.isna(ema_200) or ema_200 == 0 or price > (ema_200 * 0.99):
+                        self._open_position(1, price, atr, timestamp)
+                        
                 elif sell_signals[i]:
-                    self._open_position(-1, price, atr, timestamp)
+                    # LONG ONLY MODE ACTIVATED
+                    pass
+                    # TREND FILTER: Only Sell if Price < EMA 200
+                    # if pd.isna(ema_200) or ema_200 == 0 or price < (ema_200 * 1.01):
+                    #    self._open_position(-1, price, atr, timestamp)
             
             # Track Equity (Mark-to-Market is optional, here keeping it simple: Cash + Unrealized)
             self.equity.append(self.capital)
@@ -98,13 +107,12 @@ class RealisticBacktester:
         
         if direction == 1:
             self.entry_price = price + cost_impact
-            self.sl = self.entry_price - (2.0 * atr)
-            self.tp = self.entry_price + (3.0 * atr) # 1.5 Reward Ratio
+            self.sl = self.entry_price - (1.5 * atr) # Tighter Stop (1.5x)
+            self.tp = self.entry_price + (3.0 * atr) # Target (3.0x) -> R:R 1:2
         else:
             self.entry_price = price - cost_impact
-            self.sl = self.entry_price + (2.0 * atr)
-            self.tp = self.entry_price - (3.0 * atr)
-
+            self.sl = self.entry_price + (1.5 * atr) # Tighter Stop (1.5x)
+            self.tp = self.entry_price - (3.0 * atr) # Target (3.0x) -> R:R 1:2
         self.position = direction
         self.entry_time = timestamp
         
@@ -123,7 +131,7 @@ class RealisticBacktester:
             print(f"  SL: ${self.sl:,.2f} (Risk: {abs(self.sl-self.entry_price)/self.entry_price*100:.2f}%)")
             print(f"  TP: ${self.tp:,.2f} (Reward: {abs(self.tp-self.entry_price)/self.entry_price*100:.2f}%)")
             print(f"  ATR: ${atr:,.2f}")
-            print(f"  R:R Ratio: 1:{abs(self.tp-self.entry_price)/abs(self.sl-self.entry_price):.2f}")
+            print(f"  R:R Ratio: 1:2.00")
 
     def _check_exit(self, current_price, timestamp, candle_row):
         """Checks if Price hit SL or TP during the candle."""
